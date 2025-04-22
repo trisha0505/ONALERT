@@ -1,0 +1,514 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="row justify-content-center">
+    <div class="col-md-8">
+        <div class="card glass-effect">
+            <div class="card-header">
+                <h3 class="text-center">Report a Crime</h3>
+            </div>
+            <div class="card-body">
+                <form method="POST" enctype="multipart/form-data" id="reportForm">
+                    <div class="mb-3">
+                        <label for="title" class="form-label">Crime Type</label>
+                        <select class="form-select glass-effect" id="title" name="title" required>
+                            <option value="" selected disabled>Select crime type</option>
+                            <option value="Theft">Theft</option>
+                            <option value="Robbery">Robbery</option>
+                            <option value="Assault">Assault</option>
+                            <option value="Burglary">Burglary</option>
+                            <option value="Vehicle Theft">Vehicle Theft</option>
+                            <option value="Vandalism">Vandalism</option>
+                            <option value="Drug-related">Drug-related Crime</option>
+                            <option value="Fraud">Fraud</option>
+                            <option value="Harassment">Harassment</option>
+                            <option value="Other">Other</option>
+                        </select>
+                    </div>
+                    <div class="mb-3">
+                        <label for="description" class="form-label">Description</label>
+                        <textarea class="form-control glass-effect" id="description" name="description" rows="3" required></textarea>
+                    </div>
+                    <div class="mb-3">
+                        <label for="location" class="form-label">Location</label>
+                        <input type="text" class="form-control" id="location" name="location" required>
+                        <small class="form-text text-muted">Enter an address or adjust the pin on the map below</small>
+                    </div>
+                    <!-- Map Section -->
+                    <div class="mb-3">
+                        <label for="map" class="form-label">Map Location</label>
+                        <div id="map" style="height: 300px; border-radius: 4px;"></div>
+                        <div class="d-flex justify-content-between align-items-center mt-2">
+                            <div class="d-flex align-items-center">
+                                <i class="fas fa-map-marker-alt me-2"></i>
+                                <small>Drag the blue pin to update location</small>
+                            </div>
+                            <button type="button" class="btn btn-dark" id="resetLocation" style="background-color: #003366; padding: 8px 16px; border-radius: 4px;">
+                                <i class="fas fa-location-arrow me-1"></i>
+                                Reset Location
+                            </button>
+                        </div>
+                    </div>
+                    <!-- Upload Evidence Section -->
+                    <div class="mb-3">
+                        <label for="evidence" class="form-label">Upload Evidence (Optional)</label>
+                        <input type="file" class="form-control glass-effect" id="evidence" name="evidence" accept="image/*,.pdf,.doc,.docx">
+                        <div class="form-text">Accepted formats: Images (JPG, PNG), PDF, DOC, DOCX</div>
+                        <div id="imagePreview" class="mt-2" style="display: none;">
+                            <img id="preview" src="" alt="Preview" style="max-width: 200px; max-height: 200px;">
+                        </div>
+                    </div>
+                    <!-- Suspect Description Section -->
+                    <div class="card mt-4">
+                        <div class="card-header">
+                            <h4>Suspect Description</h4>
+                        </div>
+                        <div class="card-body">
+                            <div class="form-group">
+                                <label for="suspect_description">Describe the Suspect</label>
+                                <textarea class="form-control" id="suspect_description" name="suspect_description" rows="4" 
+                                          placeholder="Please provide detailed description including:&#10;- Age&#10;- Height&#10;- Build&#10;- Hair color and style&#10;- Eye color&#10;- Facial features&#10;- Clothing&#10;- Any distinguishing marks or features"></textarea>
+                            </div>
+                            
+                            <div class="form-group">
+                                <button type="button" class="btn btn-primary" id="generateSketch">Generate Suspect Sketch</button>
+                            </div>
+                            
+                            <div id="sketchContainer" class="mt-3" style="display: none;">
+                                <div class="row">
+                                    <div class="col-md-6">
+                                        <img id="generatedSketch" class="img-fluid" alt="Generated Suspect Sketch">
+                                    </div>
+                                    <div class="col-md-6">
+                                        <div class="form-group">
+                                            <button type="button" class="btn btn-secondary" id="regenerateSketch">Regenerate Sketch</button>
+                                        </div>
+                                        <div class="form-group">
+                                            <button type="button" class="btn btn-success" id="saveSketch">Save Sketch</button>
+                                        </div>
+                                    </div>
+                                </div>
+                                <input type="hidden" id="suspect_sketch" name="suspect_sketch">
+                            </div>
+                        </div>
+                    </div>
+                    <!-- Anonymous Reporting Option -->
+                    <div class="mb-3 form-check">
+                        <input type="checkbox" class="form-check-input" id="is_anonymous" name="is_anonymous">
+                        <label class="form-check-label" for="is_anonymous">Submit Report Anonymously</label>
+                        <div class="form-text">Your identity will be hidden from police officers but will be available to administrators for verification purposes.</div>
+                    </div>
+                    <input type="hidden" id="latitude" name="latitude">
+                    <input type="hidden" id="longitude" name="longitude">
+                    <div class="text-center">
+                        <button type="submit" class="btn btn-primary glass-effect">Submit Report</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Loading Modal -->
+<div class="modal fade" id="loadingModal" tabindex="-1" role="dialog">
+    <div class="modal-dialog" role="document">
+        <div class="modal-content">
+            <div class="modal-body text-center">
+                <div class="spinner-border text-primary" role="status">
+                    <span class="sr-only">Loading...</span>
+                </div>
+                <p class="mt-2">Generating suspect sketch...</p>
+            </div>
+        </div>
+    </div>
+</div>
+
+<style>
+.btn-dark {
+    background-color: #003366 !important;
+    border: none;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.btn-dark:hover {
+    background-color: #002244 !important;
+}
+
+#map {
+    border: 1px solid #e0e0e0;
+}
+
+.form-control {
+    padding: 12px;
+    font-size: 16px;
+}
+
+small {
+    color: #666;
+}
+
+.fas {
+    color: #666;
+}
+</style>
+
+{% endblock %}
+
+{% block scripts %}
+<script>
+    // Initialize the map with a default view of Mumbai
+    var map = L.map('map').setView([19.0760, 72.8777], 11);
+    var marker;
+
+    // Create a custom pin icon
+    var customIcon = L.divIcon({
+        className: 'custom-pin',
+        html: `<div style="
+            position: relative;
+            width: 24px;
+            height: 24px;
+        ">
+            <div style="
+                position: absolute;
+                top: 0;
+                left: 50%;
+                transform: translateX(-50%);
+                width: 24px;
+                height: 24px;
+                background-color: #2196F3;
+                border-radius: 50%;
+                box-shadow: 0 2px 5px rgba(0,0,0,0.2);
+                border: 2px solid white;
+            "></div>
+            <div style="
+                position: absolute;
+                top: 50%;
+                left: 50%;
+                transform: translate(-50%, -50%);
+                width: 8px;
+                height: 8px;
+                background-color: white;
+                border-radius: 50%;
+            "></div>
+        </div>`,
+        iconSize: [24, 24],
+        iconAnchor: [12, 12],
+        popupAnchor: [0, -12]
+    });
+
+    // Add the tile layer
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+        attribution: '© OpenStreetMap contributors'
+    }).addTo(map);
+
+    // Function to get and set user's location
+    function getLocation() {
+        if (navigator.geolocation) {
+            navigator.geolocation.getCurrentPosition(
+                function(position) {
+                    var lat = position.coords.latitude;
+                    var lon = position.coords.longitude;
+                    
+                    // Set map view to user's location
+                    map.setView([lat, lon], 15);
+                    
+                    // Remove existing marker if any
+                    if (marker) {
+                        map.removeLayer(marker);
+                    }
+                    
+                    // Add new marker with custom icon
+                    marker = L.marker([lat, lon], {
+                        icon: customIcon,
+                        draggable: true
+                    }).addTo(map);
+                    
+                    // Get address for the location
+                    fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lon}&zoom=18&addressdetails=1`)
+                        .then(response => response.json())
+                        .then(data => {
+                            if (data.address) {
+                                // Format address to include all components
+                                const area = data.address.suburb || data.address.neighbourhood || '';
+                                const ward = data.address.political || data.address.residential || '';
+                                const zone = data.address.city_district || '';
+                                const city = data.address.city || 'Mumbai';
+                                const state = data.address.state || 'Maharashtra';
+                                const postcode = data.address.postcode || '400068';
+                                const country = data.address.country || 'India';
+                                
+                                const formattedAddress = `${area}, ${ward}, Zone ${zone}, ${city}, ${state}, ${postcode}, ${country}`
+                                    .replace(/,\s+,/g, ',')
+                                    .replace(/^,\s+/, '')
+                                    .replace(/,\s*$/, '');
+                                
+                                document.getElementById('location').value = formattedAddress;
+                            }
+                        })
+                        .catch(error => {
+                            console.error('Error:', error);
+                            document.getElementById('location').value = 'Location selected on map';
+                        });
+
+                    // Update hidden fields
+                    document.getElementById('latitude').value = lat;
+                    document.getElementById('longitude').value = lon;
+                    
+                    // Add dragend event listener
+                    marker.on('dragend', function(event) {
+                        var position = event.target.getLatLng();
+                        updateLocation(position.lat, position.lng);
+                    });
+                },
+                function(error) {
+                    console.error('Error getting location:', error);
+                    // Default to Dahisar East area
+                    var defaultLat = 19.2483;
+                    var defaultLng = 72.8673;
+                    map.setView([defaultLat, defaultLng], 15);
+                    
+                    marker = L.marker([defaultLat, defaultLng], {
+                        icon: customIcon,
+                        draggable: true
+                    }).addTo(map);
+                    
+                    marker.on('dragend', function(event) {
+                        var position = event.target.getLatLng();
+                        updateLocation(position.lat, position.lng);
+                    });
+                }
+            );
+        } else {
+            alert("Geolocation is not supported by this browser.");
+        }
+    }
+
+    // Function to update location when marker is dragged
+    function updateLocation(lat, lng) {
+        document.getElementById('latitude').value = lat;
+        document.getElementById('longitude').value = lng;
+        
+        fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lng}&zoom=18&addressdetails=1`)
+            .then(response => response.json())
+            .then(data => {
+                if (data.address) {
+                    // Format address to include all components
+                    const area = data.address.suburb || data.address.neighbourhood || '';
+                    const ward = data.address.political || data.address.residential || '';
+                    const zone = data.address.city_district || '';
+                    const city = data.address.city || 'Mumbai';
+                    const state = data.address.state || 'Maharashtra';
+                    const postcode = data.address.postcode || '400068';
+                    const country = data.address.country || 'India';
+                    
+                    const formattedAddress = `${area}, ${ward}, Zone ${zone}, ${city}, ${state}, ${postcode}, ${country}`
+                        .replace(/,\s+,/g, ',')
+                        .replace(/^,\s+/, '')
+                        .replace(/,\s*$/, '');
+                    
+                    document.getElementById('location').value = formattedAddress;
+                }
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                document.getElementById('location').value = 'Location selected on map';
+            });
+    }
+
+    // Call getLocation when page loads
+    getLocation();
+
+    // Add click handler for reset location button
+    document.getElementById('resetLocation').addEventListener('click', function() {
+        this.disabled = true;
+        this.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Getting location...';
+        getLocation();
+        setTimeout(() => {
+            this.disabled = false;
+            this.innerHTML = '<i class="fas fa-location-arrow"></i> Reset Location';
+        }, 2000);
+    });
+
+    // Add click handler for map
+    map.on('click', function(e) {
+        var clickedLat = e.latlng.lat;
+        var clickedLng = e.latlng.lng;
+        
+        if (marker) {
+            map.removeLayer(marker);
+        }
+        
+        marker = L.marker([clickedLat, clickedLng], {
+            icon: customIcon,
+            draggable: true
+        }).addTo(map);
+        
+        marker.on('dragend', function(event) {
+            var position = event.target.getLatLng();
+            updateLocation(position.lat, position.lng);
+        });
+        
+        updateLocation(clickedLat, clickedLng);
+    });
+
+    // Image preview functionality
+    document.getElementById('evidence').addEventListener('change', function(e) {
+        const file = e.target.files[0];
+        const preview = document.getElementById('preview');
+        const previewDiv = document.getElementById('imagePreview');
+        
+        if (file) {
+            if (file.type.startsWith('image/')) {
+                const reader = new FileReader();
+                reader.onload = function(e) {
+                    preview.src = e.target.result;
+                    previewDiv.style.display = 'block';
+                }
+                reader.readAsDataURL(file);
+            } else {
+                previewDiv.style.display = 'none';
+            }
+        }
+    });
+
+    // Form validation
+    document.getElementById('reportForm').addEventListener('submit', function(e) {
+        const lat = document.getElementById('latitude').value;
+        const lng = document.getElementById('longitude').value;
+        if (!lat || !lng) {
+            e.preventDefault();
+            alert('Please allow location access to get your current location');
+            return;
+        }
+    });
+
+    document.addEventListener('DOMContentLoaded', function() {
+        const generateBtn = document.getElementById('generateSketch');
+        const regenerateBtn = document.getElementById('regenerateSketch');
+        const saveBtn = document.getElementById('saveSketch');
+        const sketchContainer = document.getElementById('sketchContainer');
+        const generatedSketch = document.getElementById('generatedSketch');
+        const suspectSketchInput = document.getElementById('suspect_sketch');
+        const loadingModal = new bootstrap.Modal(document.getElementById('loadingModal'));
+
+        // Create error modal
+        const errorModalHtml = `
+            <div class="modal fade" id="errorModal" tabindex="-1" role="dialog">
+                <div class="modal-dialog" role="document">
+                    <div class="modal-content">
+                        <div class="modal-header">
+                            <h5 class="modal-title">Error Generating Sketch</h5>
+                            <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                        </div>
+                        <div class="modal-body">
+                            <p id="errorMessage"></p>
+                            <div id="errorHelp" class="alert alert-info mt-3" style="display: none;"></div>
+                        </div>
+                        <div class="modal-footer">
+                            <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        `;
+        document.body.insertAdjacentHTML('beforeend', errorModalHtml);
+        const errorModal = new bootstrap.Modal(document.getElementById('errorModal'));
+
+        function showError(error, errorType) {
+            const errorMessage = document.getElementById('errorMessage');
+            const errorHelp = document.getElementById('errorHelp');
+            
+            errorMessage.textContent = error;
+            errorHelp.style.display = 'none';
+            
+            if (errorType === 'model_loading') {
+                errorHelp.innerHTML = `
+                    <strong>What's happening?</strong>
+                    <p>The AI model is currently warming up. This is normal and usually takes 1-2 minutes.</p>
+                    <strong>What can you do?</strong>
+                    <ul class="mb-0">
+                        <li>Wait a few moments and try again</li>
+                        <li>If the issue persists, you can:</li>
+                        <ul>
+                            <li>Continue with your report without the AI-generated sketch</li>
+                            <li>Upload a manual sketch or photo instead</li>
+                        </ul>
+                    </ul>
+                `;
+                errorHelp.style.display = 'block';
+            } else if (errorType === 'auth_error') {
+                errorHelp.innerHTML = `
+                    <strong>What can you do?</strong>
+                    <ul class="mb-0">
+                        <li>Please contact the system administrator</li>
+                        <li>In the meantime, you can:</li>
+                        <ul>
+                            <li>Continue with your report without the AI-generated sketch</li>
+                            <li>Upload a manual sketch or photo instead</li>
+                        </ul>
+                    </ul>
+                `;
+                errorHelp.style.display = 'block';
+            } else if (errorType === 'api_error') {
+                errorHelp.innerHTML = `
+                    <strong>What can you do?</strong>
+                    <ul class="mb-0">
+                        <li>Try again in a few moments</li>
+                        <li>If the issue persists:</li>
+                        <ul>
+                            <li>Continue with your report without the AI-generated sketch</li>
+                            <li>Upload a manual sketch or photo instead</li>
+                            <li>Contact support if the problem continues</li>
+                        </ul>
+                    </ul>
+                `;
+                errorHelp.style.display = 'block';
+            }
+            
+            errorModal.show();
+        }
+
+        async function generateSketch() {
+            const description = document.getElementById('suspect_description').value;
+            if (!description) {
+                showError('Please provide a suspect description first.');
+                return;
+            }
+
+            loadingModal.show();
+            try {
+                const response = await fetch('/generate-sketch', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/x-www-form-urlencoded',
+                    },
+                    body: `description=${encodeURIComponent(description)}`
+                });
+
+                const data = await response.json();
+                if (data.success) {
+                    generatedSketch.src = `data:image/png;base64,${data.image}`;
+                    sketchContainer.style.display = 'block';
+                    suspectSketchInput.value = `data:image/png;base64,${data.image}`;
+                } else {
+                    showError(data.error, data.error_type);
+                }
+            } catch (error) {
+                showError('Network error while generating sketch. Please try again.');
+            } finally {
+                loadingModal.hide();
+            }
+        }
+
+        generateBtn.addEventListener('click', generateSketch);
+        regenerateBtn.addEventListener('click', generateSketch);
+        
+        saveBtn.addEventListener('click', function() {
+            // The sketch is already saved in the hidden input
+            alert('Sketch saved successfully!');
+        });
+    });
+</script>
+{% endblock %} 
